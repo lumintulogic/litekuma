@@ -1,0 +1,21 @@
+[Unit]
+Description=LiteKuma Headless Uptime Monitor
+Documentation=https://github.com/fasttracker/litekuma
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=abc
+Group=abc
+WorkingDirectory=/config/workspace/fasttracker
+ExecStart=/config/workspace/fasttracker/bin/litekuma run -c /config/workspace/fasttracker/config.example.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,128 @@
+# ==============================================================================
+# LiteKuma - Lightweight Headless Uptime Monitor Configuration
+# ==============================================================================
+
+settings:
+  default_interval: 60      # Global default check interval in seconds
+  default_timeout: 10.0     # Global default request timeout in seconds
+  state_file: litekuma_state.json
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# All check results and alert events are stored in structured text files.
+# ------------------------------------------------------------------------------
+logging:
+  file_path: uptime.log              # Path to the primary text log file
+  event_file_path: uptime_events.log # Optional: separate log for UP/DOWN alerts only
+  format: text                       # Formats: 'text' (human-readable), 'tsv', or 'json'
+  max_bytes: 10485760                # 10 MB per file before automatic rotation
+  backup_count: 5                    # Keep up to 5 rotated backup logs
+  console: true                      # Print color-coded status to terminal / stdout
+  log_all_heartbeats: true           # If false, only logs errors and state changes
+
+# ------------------------------------------------------------------------------
+# Alert Notification Channels (Optional)
+# ------------------------------------------------------------------------------
+notifiers:
+  - id: discord-webhook
+    type: webhook
+    enabled: false
+    url: "https://discord.com/api/webhooks/your/webhook/url"
+    notify_on_down: true
+    notify_on_recovery: true
+
+  - id: slack-webhook
+    type: webhook
+    enabled: false
+    url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    notify_on_down: true
+    notify_on_recovery: true
+
+  - id: telegram-alert
+    type: telegram
+    enabled: false
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+    notify_on_down: true
+    notify_on_recovery: true
+
+  - id: failover-action
+    type: command
+    enabled: false
+    command: "/bin/bash wan-failover.sh --trigger-litekuma"
+    notify_on_down: true
+    notify_on_recovery: false
+
+# ------------------------------------------------------------------------------
+# Monitored Targets
+# ------------------------------------------------------------------------------
+monitors:
+  # HTTP Monitor with Custom Headers and Keyword Validation
+  - id: internal-api
+    name: Internal Microservice API
+    type: http
+    target: "https://httpbin.org/get"
+    interval: 30
+    timeout: 5.0
+    max_retries: 2
+    retry_interval: 3
+    method: GET
+    # Custom headers for authentication, tenant routing, and custom agents:
+    headers:
+      Authorization: "Bearer ${API_KEY:-my-secret-token}"
+      X-Custom-Client: "LiteKuma-Daemon"
+      X-Environment: "Production"
+      Accept: "application/json"
+    expected_status: "200-299"
+    keyword: "LiteKuma-Daemon"     # Verifies this string is returned in the response
+    verify_ssl: true
+    check_ssl_expiry: true
+    ssl_expiry_days_threshold: 14
+
+  # Simple Public Website Check
+  - id: google-search
+    name: Google Web Search
+    type: http
+    target: "https://www.google.com"
+    interval: 60
+    timeout: 5.0
+    method: GET
+    expected_status: 200
+
+  # Authenticated POST Webhook / Endpoint Check
+  - id: auth-post-endpoint
+    name: Backend Ingestion Endpoint
+    type: http
+    target: "https://httpbin.org/post"
+    interval: 120
+    method: POST
+    headers:
+      Content-Type: "application/json"
+      X-API-Key: "secret-key-12345"
+    body: '{"healthcheck": true, "source": "litekuma"}'
+    expected_status: [200, 201]
+
+  # TCP Port Monitor (e.g. DNS, Database, SSH)
+  - id: cloudflare-dns-tcp
+    name: Cloudflare DNS Port 53
+    type: tcp
+    target: "1.1.1.1"
+    port: 53
+    interval: 60
+    timeout: 3.0
+
+  # ICMP Ping Monitor
+  - id: quad9-ping
+    name: Quad9 Anycast Gateway
+    type: ping
+    target: "9.9.9.9"
+    interval: 60
+    timeout: 3.0
+
+  # Domain Name Resolution (DNS) Monitor
+  - id: domain-dns-check
+    name: Example Domain DNS
+    type: dns
+    target: "example.com"
+    interval: 300
+    # expected_dns_value: "93.184.215.14" # Optional: assert domain resolves to specific IP
