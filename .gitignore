@@ -17,3 +17,6 @@ ENV/
 dist/
 build/
 *.egg-info/
+
+litekuma.service
+monitors.yaml

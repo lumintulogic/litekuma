@@ -1,0 +1,21 @@
+[Unit]
+Description=LiteKuma Headless Uptime Monitor
+Documentation=https://github.com/fasttracker/litekuma
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=<RUN_AS_USER>
+Group=<RUN_AS_GROUP>
+WorkingDirectory=<LITEKUMA_ROOT>
+ExecStart=<LITEKUMA_BIN> run -c <CONFIG_FILE>
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
