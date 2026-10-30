@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+import urllib.error
+import urllib.request
 from typing import Any, Dict
 
-import httpx
+try:
+    import httpx
+    HAS_HTTPX = True
+except ImportError:
+    httpx = None
+    HAS_HTTPX = False
 
 from litekuma.models import CheckResult, NotifierConfig, Status
 from litekuma.notifiers.base import BaseNotifier
@@ -70,15 +79,35 @@ class WebhookNotifier(BaseNotifier):
         headers = {"Content-Type": "application/json"}
         headers.update(self.config.headers)
 
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.request(
-                    method=self.config.method,
+        if HAS_HTTPX:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.request(
+                        method=self.config.method,
+                        url=self.config.url,
+                        json=payload,
+                        headers=headers,
+                    )
+                    return resp.is_success
+            except Exception as exc:
+                logger.error(f"Failed to deliver webhook to {self.config.url}: {exc}")
+                return False
+        else:
+            loop = asyncio.get_running_loop()
+
+            def _send_sync():
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(
                     url=self.config.url,
-                    json=payload,
+                    data=data,
                     headers=headers,
+                    method=self.config.method,
                 )
-                return resp.is_success
-        except Exception as exc:
-            logger.error(f"Failed to deliver webhook to {self.config.url}: {exc}")
-            return False
+                with urllib.request.urlopen(req, timeout=10.0) as resp:
+                    return 200 <= resp.status < 300
+
+            try:
+                return await loop.run_in_executor(None, _send_sync)
+            except Exception as exc:
+                logger.error(f"Failed to deliver webhook to {self.config.url}: {exc}")
+                return False

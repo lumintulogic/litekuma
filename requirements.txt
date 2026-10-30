@@ -1,0 +1,5 @@
+# Optional performance & formatting enhancements
+# LiteKuma can run using pure Python standard library out of the box,
+# but installing these provides async HTTP/2 support and strict YAML parsing.
+httpx>=0.24.0
+pyyaml>=6.0

@@ -10,10 +10,6 @@ from pathlib import Path
 from typing import List, Optional
 
 from litekuma import __version__
-from litekuma.config import load_config
-from litekuma.engine import MonitorEngine
-from litekuma.models import CheckResult, LogFormat, LoggingConfig, MonitorConfig, MonitorType, Status, SystemConfig
-from litekuma.state import StateManager
 
 DEFAULT_CONFIG_FILES = [
     "monitors.yaml",
@@ -196,6 +192,10 @@ def run_daemon(args: argparse.Namespace) -> int:
         sys.stderr.write("Error: No configuration file found. Run 'litekuma init' to generate monitors.yaml\n")
         return 1
 
+    from litekuma.config import load_config
+    from litekuma.engine import MonitorEngine
+    from litekuma.models import LogFormat
+
     try:
         config = load_config(config_path)
     except Exception as exc:
@@ -250,6 +250,10 @@ def run_daemon(args: argparse.Namespace) -> int:
 
 def run_check(args: argparse.Namespace) -> int:
     """Executes a single check pass across targets."""
+    from litekuma.config import load_config
+    from litekuma.engine import MonitorEngine
+    from litekuma.models import CheckResult, LogFormat, LoggingConfig, MonitorConfig, MonitorType, Status, SystemConfig
+
     # Ad-hoc target mode
     if args.target:
         headers_dict = {}
@@ -359,6 +363,10 @@ def run_check(args: argparse.Namespace) -> int:
 
 def run_status(args: argparse.Namespace) -> int:
     """Reads and displays monitor uptime stats from state file."""
+    from litekuma.config import load_config
+    from litekuma.models import Status
+    from litekuma.state import StateManager
+
     config_path = args.config or find_default_config()
     state_file = args.state_file or "litekuma_state.json"
     if config_path and Path(config_path).is_file():
@@ -408,6 +416,8 @@ def run_status(args: argparse.Namespace) -> int:
 
 
 def run_validate(args: argparse.Namespace) -> int:
+    from litekuma.config import load_config
+
     config_path = args.config or find_default_config()
     if not config_path:
         sys.stderr.write("Error: No configuration file specified or found.\n")

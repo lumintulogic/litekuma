@@ -1,7 +1,17 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
-import httpx
+import urllib.error
+import urllib.request
+
+try:
+    import httpx
+    HAS_HTTPX = True
+except ImportError:
+    httpx = None
+    HAS_HTTPX = False
 
 from litekuma.models import CheckResult, NotifierConfig, Status
 from litekuma.notifiers.base import BaseNotifier
@@ -45,10 +55,30 @@ class TelegramNotifier(BaseNotifier):
             "disable_web_page_preview": True,
         }
 
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(api_url, json=payload)
-                return resp.is_success
-        except Exception as exc:
-            logger.error(f"Failed to send Telegram alert: {exc}")
-            return False
+        if HAS_HTTPX:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.post(api_url, json=payload)
+                    return resp.is_success
+            except Exception as exc:
+                logger.error(f"Failed to send Telegram alert: {exc}")
+                return False
+        else:
+            loop = asyncio.get_running_loop()
+
+            def _send_sync():
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(
+                    url=api_url,
+                    data=data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=10.0) as resp:
+                    return 200 <= resp.status < 300
+
+            try:
+                return await loop.run_in_executor(None, _send_sync)
+            except Exception as exc:
+                logger.error(f"Failed to send Telegram alert: {exc}")
+                return False
